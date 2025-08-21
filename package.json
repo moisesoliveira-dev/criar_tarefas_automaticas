@@ -7,7 +7,9 @@
     "start": "node index.js",
     "dev": "node index.js",
     "test": "node index.js teste",
-    "test-now": "node index.js teste"
+    "test-now": "node index.js teste",
+    "start:modular": "node index-modular.js",
+    "test:modular": "node index-modular.js teste"
   },
   "dependencies": {
     "node-cron": "^3.0.3",

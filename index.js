@@ -180,6 +180,28 @@ async function salvarOrdemNoBanco(salesOrderId, code) {
   }
 }
 
+// Função para limpar ordem específica do banco (apenas para testes)
+async function limparOrdemDoBanco(code) {
+  console.log(`🗑️ Removendo ordem ${code} do banco para teste...`);
+
+  try {
+    const client = await pool.connect();
+    const query = "DELETE FROM tb_pontta_sales_order WHERE code = $1";
+    const result = await client.query(query, [code]);
+
+    client.release();
+
+    console.log(
+      `✅ Ordem ${code} removida do banco. Linhas afetadas: ${result.rowCount}`
+    );
+
+    return result.rowCount;
+  } catch (error) {
+    console.error(`❌ Erro ao remover ordem ${code} do banco:`, error.message);
+    throw error;
+  }
+}
+
 // Função de autenticação
 async function autenticarPontta() {
   console.log("🔐 Fazendo autenticação no Pontta...");
@@ -372,33 +394,64 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
     }
   }
 
+  // Definir para o final do dia (23:59) no timezone de Manaus (UTC-4)
+  // Para que seja 23:59 em Manaus, precisa ser 03:59 UTC no dia seguinte
+  resultado.setUTCHours(3, 59, 59, 999);
+
   return resultado;
 }
 
 // Função para calcular data de checagem de medida (apenas seg, qua, sex - 2 dias após venda mínimo)
 function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   const dataVendaObj = new Date(dataVenda);
-  const dataMinima = adicionarDiasUteis(dataVendaObj, diasMinimos);
+  const hoje = new Date();
+
+  // Verificar se a data de venda é hoje (comparar apenas a data, ignorar horário)
+  const dataVendaSoData = new Date(
+    dataVendaObj.getFullYear(),
+    dataVendaObj.getMonth(),
+    dataVendaObj.getDate()
+  );
+  const hojeSoData = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    hoje.getDate()
+  );
+  const isDataVendaHoje = dataVendaSoData.getTime() === hojeSoData.getTime();
+
+  let diasParaAdicionar = diasMinimos;
+  if (isDataVendaHoje) {
+    diasParaAdicionar += 1; // Adiciona 1 dia extra se for hoje
+    console.log(
+      `🆕 Pedido de venda é de hoje! Adicionando 1 dia extra. Total: ${diasParaAdicionar} dias úteis`
+    );
+  }
+
+  const dataMinima = adicionarDiasUteis(dataVendaObj, diasParaAdicionar);
 
   // Verificar se a data mínima cai em seg, qua ou sex
   const diaSemana = dataMinima.getDay();
 
   if (diaSemana === 1 || diaSemana === 3 || diaSemana === 5) {
-    // Já é seg, qua ou sex
+    // Já é seg, qua ou sex - manter a data
+    dataMinima.setUTCHours(3, 59, 59, 999); // 23:59 em Manaus
     return dataMinima;
   } else if (diaSemana === 2) {
     // Terça -> próxima quarta
     dataMinima.setDate(dataMinima.getDate() + 1);
+    dataMinima.setUTCHours(3, 59, 59, 999);
     return dataMinima;
   } else if (diaSemana === 4) {
     // Quinta -> próxima sexta
     dataMinima.setDate(dataMinima.getDate() + 1);
+    dataMinima.setUTCHours(3, 59, 59, 999);
     return dataMinima;
   } else {
     // Sábado ou domingo -> próxima segunda
     while (!isDiaUtil(dataMinima) || ![1, 3, 5].includes(dataMinima.getDay())) {
       dataMinima.setDate(dataMinima.getDate() + 1);
     }
+    dataMinima.setUTCHours(3, 59, 59, 999);
     return dataMinima;
   }
 }
@@ -417,6 +470,18 @@ async function criarTask(token, ordemId, taskData) {
 
     console.log(`🔗 URL da task: ${url}`);
     console.log(`📅 Deadline: ${taskData.deadline}`);
+
+    // Converter para timezone de Manaus para log
+    const deadlineManaus = new Date(taskData.deadline);
+    const manausTime = deadlineManaus.toLocaleString("pt-BR", {
+      timeZone: "America/Manaus",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    console.log(`🕒 Horário em Manaus: ${manausTime}`);
 
     const taskPayload = {
       id: null,
@@ -627,6 +692,21 @@ console.log("💡 Pressione Ctrl+C para encerrar");
 // Teste
 if (process.argv.includes("teste")) {
   console.log("🧪 MODO TESTE ATIVADO");
+
+  // Limpar uma ordem específica para testar
+  (async () => {
+    try {
+      const client = await pool.connect();
+      await client.query(
+        "DELETE FROM tb_pontta_sales_order WHERE code = 'PV-CM-510'"
+      );
+      client.release();
+      console.log("🗑️ Ordem PV-CM-510 removida para teste");
+    } catch (error) {
+      console.log("⚠️ Erro ao limpar banco (normal se não existir)");
+    }
+  })();
+
   executarTarefas("teste")
     .then((result) => {
       console.log("✅ Teste concluído");
