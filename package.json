@@ -1,0 +1,29 @@
+{
+  "name": "tarefas-automaticas",
+  "version": "1.0.0",
+  "description": "Job automatizado que executa diariamente às 11h e 15h (horário de Manaus/AM)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "node index.js teste",
+    "test-now": "node index.js teste"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.8",
+    "pg": "^8.11.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "cron",
+    "job",
+    "automation",
+    "railway"
+  ],
+  "author": "",
+  "license": "ISC"
+}
