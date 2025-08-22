@@ -26,30 +26,13 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
 // Função para calcular data de checagem de medida (apenas seg, qua, sex - 2 dias após venda mínimo)
 function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   const dataVendaObj = new Date(dataVenda);
-  const hoje = new Date();
 
-  // Verificar se a data de venda é hoje (comparar apenas a data, ignorar horário)
-  const dataVendaSoData = new Date(
-    dataVendaObj.getFullYear(),
-    dataVendaObj.getMonth(),
-    dataVendaObj.getDate()
+  // SEMPRE começar a contar dias úteis a partir do próximo dia (não conta o dia atual)
+  console.log(
+    `📅 Calculando ${diasMinimos} dias úteis a partir do dia seguinte à venda`
   );
-  const hojeSoData = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    hoje.getDate()
-  );
-  const isDataVendaHoje = dataVendaSoData.getTime() === hojeSoData.getTime();
 
-  let diasParaAdicionar = diasMinimos;
-  if (isDataVendaHoje) {
-    diasParaAdicionar += 1; // Adiciona 1 dia extra se for hoje
-    console.log(
-      `🆕 Pedido de venda é de hoje! Adicionando 1 dia extra. Total: ${diasParaAdicionar} dias úteis`
-    );
-  }
-
-  const dataMinima = adicionarDiasUteis(dataVendaObj, diasParaAdicionar);
+  const dataMinima = adicionarDiasUteis(dataVendaObj, diasMinimos);
 
   // Verificar se a data mínima cai em seg, qua ou sex
   const diaSemana = dataMinima.getDay();

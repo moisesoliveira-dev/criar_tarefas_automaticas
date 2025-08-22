@@ -126,6 +126,20 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           })`
         );
 
+        // Verificar se é Vitor Libório - ele não faz checagem de medida
+        const VITOR_LIBORIO_ID = "9ed8829b-7361-4695-a105-e8d3f6e7369a";
+        let projetistaChecagem = projetistaDoAmbiente;
+
+        if (projetistaDoAmbiente.projetistaid === VITOR_LIBORIO_ID) {
+          console.log(
+            "⚠️ Vitor Libório não faz checagem de medida, buscando próximo..."
+          );
+          projetistaChecagem = await obterProximoProjetista();
+          console.log(
+            `👤 Projetista para checagem de medida: ${projetistaChecagem.name} (${projetistaChecagem.projetistaid})`
+          );
+        }
+
         // Calcular datas baseadas na regra de negócio
         const diasChecagem =
           parseInt(process.env.TASK_DIAS_CHECAGEM_MEDIDA) || 2;
@@ -148,7 +162,7 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
             deadline: dataChecagem.toISOString(),
           },
           numeroAmbiente,
-          projetistaDoAmbiente
+          projetistaChecagem // Usa o projetista específico para checagem (pode ser diferente do Vitor)
         );
 
         // Task 2: Revisão do Projeto (2 dias úteis após checagem)
