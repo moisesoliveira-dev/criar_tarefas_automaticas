@@ -14,6 +14,16 @@ const pool = new Pool({
 async function testarConexaoBanco() {
   console.log("🔌 Testando conexão com o banco de dados...");
 
+  // Log da string de conexão (sem mostrar senha)
+  const connectionString = process.env.DATABASE_PUBLIC_URL;
+  if (connectionString) {
+    const safeConnectionString = connectionString.replace(
+      /:([^:@]+)@/,
+      ":****@"
+    );
+    console.log(`🔗 Conectando em: ${safeConnectionString}`);
+  }
+
   try {
     const client = await pool.connect();
 

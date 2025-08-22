@@ -37,9 +37,6 @@ TASK_DIAS_REVISAO_PROJETO=2
 TASK_DIAS_ENVIO_CLIENTE=2
 TASK_DIAS_APROVACAO_EXECUTIVO=2
 
-# ID do responsável (pode mudar conforme necessário)
-TASK_RESPONSIBLE_ID=c02ae491-57f1-445d-965c-3fa26d9dad7d
-
 # PostgreSQL - Railway vai gerar automaticamente, mas configure se necessário
 DATABASE_PUBLIC_URL=postgresql://user:pass@host:port/db
 
