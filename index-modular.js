@@ -23,8 +23,10 @@ console.log(`   • 23:59 (${TIMEZONE})`);
 console.log(`   • Teste: a cada 1 minuto`);
 
 // Verificar se job de teste deve ser ativado
+const testScheduleVar = process.env.JOB_SCHEDULE_TEST;
+console.log(`🔍 Debug JOB_SCHEDULE_TEST: "${testScheduleVar}" (tipo: ${typeof testScheduleVar})`);
 const shouldRunTestJob =
-  process.env.JOB_SCHEDULE_TEST && process.env.JOB_SCHEDULE_TEST !== "";
+  testScheduleVar && testScheduleVar !== "";
 console.log(`🧪 Job de teste: ${shouldRunTestJob ? "ATIVADO" : "DESATIVADO"}`);
 console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV || "undefined"}`);
 
@@ -74,8 +76,9 @@ cron.schedule(
 );
 
 // Job de teste - ativado se JOB_SCHEDULE_TEST estiver definido
-if (shouldRunTestJob && process.env.JOB_SCHEDULE_TEST) {
-  console.log(`🧪 Agendando job de teste: ${process.env.JOB_SCHEDULE_TEST}`);
+const testSchedule = process.env.JOB_SCHEDULE_TEST;
+if (shouldRunTestJob && testSchedule && testSchedule.trim() !== "") {
+  console.log(`🧪 Agendando job de teste: ${testSchedule}`);
   console.log(
     `🕒 Horário atual: ${new Date().toLocaleString("pt-BR", {
       timeZone: TIMEZONE,
@@ -83,10 +86,10 @@ if (shouldRunTestJob && process.env.JOB_SCHEDULE_TEST) {
   );
 
   cron.schedule(
-    process.env.JOB_SCHEDULE_TEST,
+    testSchedule,
     async () => {
       console.log(
-        `🧪 Executando job de teste (${process.env.JOB_SCHEDULE_TEST})`
+        `🧪 Executando job de teste (${testSchedule})`
       );
       console.log(
         `🕒 Horário de execução: ${new Date().toLocaleString("pt-BR", {
