@@ -74,7 +74,7 @@ cron.schedule(
 );
 
 // Job de teste - ativado se JOB_SCHEDULE_TEST estiver definido
-if (shouldRunTestJob) {
+if (shouldRunTestJob && process.env.JOB_SCHEDULE_TEST) {
   console.log(`🧪 Agendando job de teste: ${process.env.JOB_SCHEDULE_TEST}`);
   console.log(
     `🕒 Horário atual: ${new Date().toLocaleString("pt-BR", {
