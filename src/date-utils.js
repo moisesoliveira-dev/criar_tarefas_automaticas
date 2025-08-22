@@ -82,16 +82,24 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
 function obterDatasConsulta() {
   const hoje = new Date();
 
-  // Criar data no início do dia (04:00 UTC = 00:00 Manaus)
-  const start = new Date(hoje);
-  start.setUTCHours(4, 0, 0, 0);
+  // Obter a data atual em formato YYYY-MM-DD no timezone de Manaus
+  const dataManaus = new Date(
+    hoje.toLocaleString("en-US", { timeZone: "America/Manaus" })
+  );
 
-  // End é o mesmo que start para consultar apenas o dia atual
-  const end = new Date(start);
+  // Criar string da data no formato correto (sempre 04:00 UTC para representar 00:00 Manaus)
+  const ano = dataManaus.getFullYear();
+  const mes = String(dataManaus.getMonth() + 1).padStart(2, "0");
+  const dia = String(dataManaus.getDate()).padStart(2, "0");
+
+  const dataString = `${ano}-${mes}-${dia}T04:00:00.000Z`;
+
+  console.log(`📅 Data calculada para consulta: ${ano}-${mes}-${dia} (Manaus)`);
+  console.log(`🔗 URL será: ${dataString}`);
 
   return {
-    start: start.toISOString(),
-    end: end.toISOString(),
+    start: dataString,
+    end: dataString,
   };
 }
 
