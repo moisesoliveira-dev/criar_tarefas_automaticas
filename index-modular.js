@@ -16,11 +16,15 @@ require("dotenv").config();
 const TIMEZONE = "America/Manaus";
 
 console.log("🚀 Job de tarefas automáticas iniciado!");
-console.log(`📅 Agendamento: 11:00 e 15:00 (${TIMEZONE})`);
+console.log(`📅 Agendamentos configurados:`);
+console.log(`   • 11:00 (${TIMEZONE})`);
+console.log(`   • 15:00 (${TIMEZONE})`);
+console.log(`   • 23:59 (${TIMEZONE})`);
+console.log(`   • Teste: a cada 10 minutos`);
 
-// Jobs agendados
+// Job das 11:00
 cron.schedule(
-  "0 11 * * *",
+  process.env.JOB_SCHEDULE_11H || "0 11 * * *",
   async () => {
     console.log(`⏰ Executando job das 11:00`);
     try {
@@ -33,8 +37,9 @@ cron.schedule(
   { scheduled: true, timezone: TIMEZONE }
 );
 
+// Job das 15:00
 cron.schedule(
-  "0 15 * * *",
+  process.env.JOB_SCHEDULE_15H || "0 15 * * *",
   async () => {
     console.log(`⏰ Executando job das 15:00`);
     try {
@@ -46,6 +51,38 @@ cron.schedule(
   },
   { scheduled: true, timezone: TIMEZONE }
 );
+
+// Job das 23:59
+cron.schedule(
+  process.env.JOB_SCHEDULE_23H59 || "59 23 * * *",
+  async () => {
+    console.log(`⏰ Executando job das 23:59`);
+    try {
+      await executarTarefas("23:59");
+      console.log("✅ Job das 23:59 executado com sucesso!");
+    } catch (error) {
+      console.error("❌ Erro no job das 23:59:", error);
+    }
+  },
+  { scheduled: true, timezone: TIMEZONE }
+);
+
+// Job de teste (a cada 10 minutos) - apenas se não for produção
+if (process.env.NODE_ENV !== "production") {
+  cron.schedule(
+    process.env.JOB_SCHEDULE_TEST || "*/10 * * * *",
+    async () => {
+      console.log(`🧪 Executando job de teste (10 minutos)`);
+      try {
+        await executarTarefas("teste-10min");
+        console.log("✅ Job de teste executado com sucesso!");
+      } catch (error) {
+        console.error("❌ Erro no job de teste:", error);
+      }
+    },
+    { scheduled: true, timezone: TIMEZONE }
+  );
+}
 
 // Função principal
 async function executarTarefas(horario) {
@@ -101,20 +138,6 @@ console.log("💡 Pressione Ctrl+C para encerrar");
 // Teste
 if (process.argv.includes("teste")) {
   console.log("🧪 MODO TESTE ATIVADO");
-
-  // Limpar uma ordem específica para testar
-  (async () => {
-    try {
-      const client = await pool.connect();
-      await client.query(
-        "DELETE FROM tb_pontta_sales_order WHERE code = 'PV-CM-510'"
-      );
-      client.release();
-      console.log("🗑️ Ordem PV-CM-510 removida para teste");
-    } catch (error) {
-      console.log("⚠️ Erro ao limpar banco (normal se não existir)");
-    }
-  })();
 
   executarTarefas("teste")
     .then((result) => {

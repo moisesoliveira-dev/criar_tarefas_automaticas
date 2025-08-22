@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { verificarOrdemExiste } = require("./database");
+const { obterDatasConsulta } = require("./date-utils");
 require("dotenv").config();
 
 let currentToken = null;
@@ -41,14 +42,8 @@ async function recuperarOrdensPedido(token) {
   console.log("📦 Recuperando ordens de pedido...");
 
   try {
-    const start = process.env.PONTTA_START_DATE;
-    const end = process.env.PONTTA_END_DATE;
-
-    if (!start || !end) {
-      throw new Error(
-        "PONTTA_START_DATE e PONTTA_END_DATE devem estar no .env"
-      );
-    }
+    // Obter datas dinâmicas do dia atual
+    const { start, end } = obterDatasConsulta();
 
     console.log(`📅 Período: ${start} até ${end}`);
 

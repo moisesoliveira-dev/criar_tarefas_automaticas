@@ -78,8 +78,26 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   }
 }
 
+// Função para obter as datas do dia atual para consulta na API
+function obterDatasConsulta() {
+  const hoje = new Date();
+
+  // Criar data no início do dia (04:00 UTC = 00:00 Manaus)
+  const start = new Date(hoje);
+  start.setUTCHours(4, 0, 0, 0);
+
+  // End é o mesmo que start para consultar apenas o dia atual
+  const end = new Date(start);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
+
 module.exports = {
   isDiaUtil,
   adicionarDiasUteis,
   calcularDataChecagemMedida,
+  obterDatasConsulta,
 };

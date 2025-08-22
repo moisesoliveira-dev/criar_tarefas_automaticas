@@ -1,7 +1,10 @@
 node_modules/
-.env
 *.log
 .DS_Store
 .vscode/
 dist/
 build/
+.env
+.env.local
+.env.production
+.env.staging

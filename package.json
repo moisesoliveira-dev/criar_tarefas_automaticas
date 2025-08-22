@@ -2,14 +2,13 @@
   "name": "tarefas-automaticas",
   "version": "1.0.0",
   "description": "Job automatizado que executa diariamente às 11h e 15h (horário de Manaus/AM)",
-  "main": "index.js",
+  "main": "index-modular.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js",
-    "test": "node index.js teste",
-    "test-now": "node index.js teste",
-    "start:modular": "node index-modular.js",
-    "test:modular": "node index-modular.js teste"
+    "start": "node index-modular.js",
+    "dev": "node index-modular.js",
+    "test": "node index-modular.js teste",
+    "build": "echo 'No build step required'",
+    "railway:start": "node index-modular.js"
   },
   "dependencies": {
     "node-cron": "^3.0.3",
