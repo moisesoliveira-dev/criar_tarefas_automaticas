@@ -20,7 +20,13 @@ console.log(`📅 Agendamentos configurados:`);
 console.log(`   • 11:00 (${TIMEZONE})`);
 console.log(`   • 15:00 (${TIMEZONE})`);
 console.log(`   • 23:59 (${TIMEZONE})`);
-console.log(`   • Teste: a cada 10 minutos`);
+console.log(`   • Teste: a cada 1 minuto`);
+
+// Verificar se job de teste deve ser ativado
+const shouldRunTestJob =
+  process.env.JOB_SCHEDULE_TEST && process.env.JOB_SCHEDULE_TEST !== "";
+console.log(`🧪 Job de teste: ${shouldRunTestJob ? "ATIVADO" : "DESATIVADO"}`);
+console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV || "undefined"}`);
 
 // Job das 11:00
 cron.schedule(
@@ -67,20 +73,38 @@ cron.schedule(
   { scheduled: true, timezone: TIMEZONE }
 );
 
-// Job de teste (a cada 10 minutos) - apenas se não for produção
-if (process.env.NODE_ENV !== "production") {
+// Job de teste - ativado se JOB_SCHEDULE_TEST estiver definido
+if (shouldRunTestJob) {
+  console.log(`🧪 Agendando job de teste: ${process.env.JOB_SCHEDULE_TEST}`);
+  console.log(
+    `🕒 Horário atual: ${new Date().toLocaleString("pt-BR", {
+      timeZone: TIMEZONE,
+    })}`
+  );
+
   cron.schedule(
-    process.env.JOB_SCHEDULE_TEST || "*/10 * * * *",
+    process.env.JOB_SCHEDULE_TEST,
     async () => {
-      console.log(`🧪 Executando job de teste (10 minutos)`);
+      console.log(
+        `🧪 Executando job de teste (${process.env.JOB_SCHEDULE_TEST})`
+      );
+      console.log(
+        `🕒 Horário de execução: ${new Date().toLocaleString("pt-BR", {
+          timeZone: TIMEZONE,
+        })}`
+      );
       try {
-        await executarTarefas("teste-10min");
+        await executarTarefas("teste-automatico");
         console.log("✅ Job de teste executado com sucesso!");
       } catch (error) {
         console.error("❌ Erro no job de teste:", error);
       }
     },
     { scheduled: true, timezone: TIMEZONE }
+  );
+} else {
+  console.log(
+    "⚪ Job de teste não configurado (JOB_SCHEDULE_TEST não definido)"
   );
 }
 
