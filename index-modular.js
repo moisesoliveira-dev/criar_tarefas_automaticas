@@ -15,6 +15,23 @@ require("dotenv").config();
 
 const TIMEZONE = "America/Manaus";
 
+// Verificar se os jobs estão habilitados
+const jobsEnabled = process.env.JOBS_ENABLED !== "false";
+console.log(`🔘 Jobs: ${jobsEnabled ? "HABILITADOS" : "DESABILITADOS"}`);
+
+if (!jobsEnabled) {
+  console.log(
+    "⏸️ JOBS PAUSADOS - Para reativar, remova JOBS_ENABLED=false ou mude para JOBS_ENABLED=true"
+  );
+  console.log(
+    "💡 Sistema permanecerá rodando, mas não executará as tarefas automáticas"
+  );
+} else {
+  console.log(
+    "▶️ JOBS ATIVOS - Sistema executará as tarefas automáticas conforme agendado"
+  );
+}
+
 console.log("🚀 Job de tarefas automáticas iniciado!");
 console.log(`📅 Agendamentos configurados:`);
 console.log(`   • 11:00 (${TIMEZONE})`);
@@ -24,9 +41,10 @@ console.log(`   • Teste: a cada 1 minuto`);
 
 // Verificar se job de teste deve ser ativado
 const testScheduleVar = process.env.JOB_SCHEDULE_TEST;
-console.log(`🔍 Debug JOB_SCHEDULE_TEST: "${testScheduleVar}" (tipo: ${typeof testScheduleVar})`);
-const shouldRunTestJob =
-  testScheduleVar && testScheduleVar !== "";
+console.log(
+  `🔍 Debug JOB_SCHEDULE_TEST: "${testScheduleVar}" (tipo: ${typeof testScheduleVar})`
+);
+const shouldRunTestJob = testScheduleVar && testScheduleVar !== "";
 console.log(`🧪 Job de teste: ${shouldRunTestJob ? "ATIVADO" : "DESATIVADO"}`);
 console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV || "undefined"}`);
 
@@ -36,7 +54,7 @@ cron.schedule(
   async () => {
     console.log(`⏰ Executando job das 11:00`);
     try {
-      await executarTarefas("11:00");
+      await executarTarefasSeHabilitado("11:00");
       console.log("✅ Job das 11:00 executado com sucesso!");
     } catch (error) {
       console.error("❌ Erro no job das 11:00:", error);
@@ -51,7 +69,7 @@ cron.schedule(
   async () => {
     console.log(`⏰ Executando job das 15:00`);
     try {
-      await executarTarefas("15:00");
+      await executarTarefasSeHabilitado("15:00");
       console.log("✅ Job das 15:00 executado com sucesso!");
     } catch (error) {
       console.error("❌ Erro no job das 15:00:", error);
@@ -66,7 +84,7 @@ cron.schedule(
   async () => {
     console.log(`⏰ Executando job das 23:59`);
     try {
-      await executarTarefas("23:59");
+      await executarTarefasSeHabilitado("23:59");
       console.log("✅ Job das 23:59 executado com sucesso!");
     } catch (error) {
       console.error("❌ Erro no job das 23:59:", error);
@@ -88,16 +106,14 @@ if (shouldRunTestJob && testSchedule && testSchedule.trim() !== "") {
   cron.schedule(
     testSchedule,
     async () => {
-      console.log(
-        `🧪 Executando job de teste (${testSchedule})`
-      );
+      console.log(`🧪 Executando job de teste (${testSchedule})`);
       console.log(
         `🕒 Horário de execução: ${new Date().toLocaleString("pt-BR", {
           timeZone: TIMEZONE,
         })}`
       );
       try {
-        await executarTarefas("teste-automatico");
+        await executarTarefasSeHabilitado("teste-automatico");
         console.log("✅ Job de teste executado com sucesso!");
       } catch (error) {
         console.error("❌ Erro no job de teste:", error);
@@ -109,6 +125,25 @@ if (shouldRunTestJob && testSchedule && testSchedule.trim() !== "") {
   console.log(
     "⚪ Job de teste não configurado (JOB_SCHEDULE_TEST não definido)"
   );
+}
+
+// Função wrapper que verifica se os jobs estão habilitados
+async function executarTarefasSeHabilitado(horario) {
+  // Verificar novamente no momento da execução (permite mudança dinâmica)
+  const jobsEnabledAgora = process.env.JOBS_ENABLED !== "false";
+
+  if (!jobsEnabledAgora) {
+    console.log(
+      `⏸️ Job ${horario} PULADO - Jobs estão desabilitados (JOBS_ENABLED=false)`
+    );
+    console.log(
+      "💡 Para reativar: remova JOBS_ENABLED ou defina JOBS_ENABLED=true"
+    );
+    return;
+  }
+
+  console.log(`▶️ Job ${horario} EXECUTANDO - Jobs estão habilitados`);
+  await executarTarefas(horario);
 }
 
 // Função principal
