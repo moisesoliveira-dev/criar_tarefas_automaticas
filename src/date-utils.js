@@ -27,12 +27,14 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
 function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   const dataVendaObj = new Date(dataVenda);
 
-  // SEMPRE começar a contar dias úteis a partir do próximo dia (não conta o dia atual)
+  // Para checagem de medida: adicionar 1 dia extra à distância normal
+  const diasComExtraChecagem = diasMinimos + 1;
+  
   console.log(
-    `📅 Calculando ${diasMinimos} dias úteis a partir do dia seguinte à venda`
+    `📅 Calculando ${diasMinimos} dias úteis + 1 dia extra para checagem = ${diasComExtraChecagem} dias úteis a partir do dia seguinte à venda`
   );
 
-  const dataMinima = adicionarDiasUteis(dataVendaObj, diasMinimos);
+  const dataMinima = adicionarDiasUteis(dataVendaObj, diasComExtraChecagem);
 
   // Verificar se a data mínima cai em seg, qua ou sex
   const diaSemana = dataMinima.getDay();
