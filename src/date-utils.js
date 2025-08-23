@@ -16,11 +16,16 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
     }
   }
 
-  // Definir para o final do dia (23:59) no timezone de Manaus (UTC-4)
-  // Para que seja 23:59 em Manaus, precisa ser 03:59 UTC no dia seguinte
-  resultado.setUTCHours(3, 59, 59, 999);
-
-  return resultado;
+  // Criar nova data para evitar problemas de fuso horário
+  // Definir explicitamente para 23:59 no dia correto
+  const ano = resultado.getFullYear();
+  const mes = resultado.getMonth();
+  const dia = resultado.getDate();
+  
+  // Criar nova data local com horário 23:59
+  const dataFinal = new Date(ano, mes, dia, 23, 59, 59, 999);
+  
+  return dataFinal;
 }
 
 // Função para calcular data de checagem de medida (apenas seg, qua, sex - 2 dias após venda mínimo)
@@ -41,25 +46,33 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
 
   if (diaSemana === 1 || diaSemana === 3 || diaSemana === 5) {
     // Já é seg, qua ou sex - manter a data
-    dataMinima.setUTCHours(3, 59, 59, 999); // 23:59 em Manaus
-    return dataMinima;
+    const ano = dataMinima.getFullYear();
+    const mes = dataMinima.getMonth();
+    const dia = dataMinima.getDate();
+    return new Date(ano, mes, dia, 23, 59, 59, 999);
   } else if (diaSemana === 2) {
     // Terça -> próxima quarta
     dataMinima.setDate(dataMinima.getDate() + 1);
-    dataMinima.setUTCHours(3, 59, 59, 999);
-    return dataMinima;
+    const ano = dataMinima.getFullYear();
+    const mes = dataMinima.getMonth();
+    const dia = dataMinima.getDate();
+    return new Date(ano, mes, dia, 23, 59, 59, 999);
   } else if (diaSemana === 4) {
     // Quinta -> próxima sexta
     dataMinima.setDate(dataMinima.getDate() + 1);
-    dataMinima.setUTCHours(3, 59, 59, 999);
-    return dataMinima;
+    const ano = dataMinima.getFullYear();
+    const mes = dataMinima.getMonth();
+    const dia = dataMinima.getDate();
+    return new Date(ano, mes, dia, 23, 59, 59, 999);
   } else {
     // Sábado ou domingo -> próxima segunda
     while (!isDiaUtil(dataMinima) || ![1, 3, 5].includes(dataMinima.getDay())) {
       dataMinima.setDate(dataMinima.getDate() + 1);
     }
-    dataMinima.setUTCHours(3, 59, 59, 999);
-    return dataMinima;
+    const ano = dataMinima.getFullYear();
+    const mes = dataMinima.getMonth();
+    const dia = dataMinima.getDate();
+    return new Date(ano, mes, dia, 23, 59, 59, 999);
   }
 }
 
