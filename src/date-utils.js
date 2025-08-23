@@ -29,7 +29,7 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
 
   // Para checagem de medida: adicionar 1 dia extra à distância normal
   const diasComExtraChecagem = diasMinimos + 1;
-  
+
   console.log(
     `📅 Calculando ${diasMinimos} dias úteis + 1 dia extra para checagem = ${diasComExtraChecagem} dias úteis a partir do dia seguinte à venda`
   );
