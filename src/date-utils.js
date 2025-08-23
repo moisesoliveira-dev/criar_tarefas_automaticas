@@ -21,10 +21,10 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
   const ano = resultado.getFullYear();
   const mes = resultado.getMonth();
   const dia = resultado.getDate();
-  
+
   // Criar nova data local com horário 23:59
   const dataFinal = new Date(ano, mes, dia, 23, 59, 59, 999);
-  
+
   return dataFinal;
 }
 

@@ -221,6 +221,60 @@ async function passarRodizioParaProximo(projetistaAtualId) {
   }
 }
 
+// Função para obter o próximo projetista sem alterar o rodízio (para casos especiais como Vitor Libório)
+async function obterProximoProjetistaSemAlterar(projetistaAtualId) {
+  console.log(
+    `🔍 Buscando próximo projetista após ${projetistaAtualId} (sem alterar rodízio)...`
+  );
+
+  try {
+    const client = await pool.connect();
+
+    // Buscar o próximo na sequência
+    const proximoResult = await client.query(
+      `
+      SELECT projetistaid, name 
+      FROM tb_pontta_rotation 
+      WHERE projetistaid > $1 
+      ORDER BY projetistaid ASC 
+      LIMIT 1
+    `,
+      [projetistaAtualId]
+    );
+
+    let proximoProjetista;
+
+    if (proximoResult.rows.length > 0) {
+      // Próximo na sequência
+      proximoProjetista = proximoResult.rows[0];
+    } else {
+      // Volta para o primeiro (ciclo completo)
+      const primeiroResult = await client.query(
+        `
+        SELECT projetistaid, name 
+        FROM tb_pontta_rotation 
+        WHERE projetistaid != $1
+        ORDER BY projetistaid ASC 
+        LIMIT 1
+      `,
+        [projetistaAtualId]
+      );
+      proximoProjetista = primeiroResult.rows[0];
+    }
+
+    client.release();
+
+    console.log(
+      `✅ Próximo projetista encontrado: ${proximoProjetista.name} (ID: ${proximoProjetista.projetistaid})`
+    );
+
+    return proximoProjetista;
+  } catch (error) {
+    console.error("❌ Erro ao buscar próximo projetista:", error.message);
+    throw error;
+  }
+}
+
 // Função para criar tabela de rodízio se não existir (apenas para desenvolvimento)
 async function criarTabelaRodizioSeNaoExistir() {
   console.log("📋 Verificando se tabela tb_pontta_rotation existe...");
@@ -282,6 +336,7 @@ module.exports = {
   salvarOrdemNoBanco,
   limparOrdemDoBanco,
   obterProximoProjetista,
+  obterProximoProjetistaSemAlterar,
   passarRodizioParaProximo,
   criarTabelaRodizioSeNaoExistir,
 };

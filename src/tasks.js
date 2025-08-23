@@ -2,6 +2,7 @@ const axios = require("axios");
 const {
   salvarOrdemNoBanco,
   obterProximoProjetista,
+  obterProximoProjetistaSemAlterar,
   passarRodizioParaProximo,
 } = require("./database");
 const {
@@ -126,15 +127,20 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           })`
         );
 
-        // Verificar se é Vitor Libório - ele não faz checagem de medida
+        // Verificar se é Vitor Libório - ele não faz checagem de medida, sempre atribuir para Anna Alice
         const VITOR_LIBORIO_ID = "9ed8829b-7361-4695-a105-e8d3f6e7369a";
+        const ANNA_ALICE_ID = "c70c4e46-459a-4c60-b500-77b59b156d49";
         let projetistaChecagem = projetistaDoAmbiente;
 
         if (projetistaDoAmbiente.projetistaid === VITOR_LIBORIO_ID) {
           console.log(
-            "⚠️ Vitor Libório não faz checagem de medida, buscando próximo..."
+            "⚠️ Vitor Libório não faz checagem de medida, atribuindo para Anna Alice..."
           );
-          projetistaChecagem = await obterProximoProjetista();
+          // Atribuir diretamente para Anna Alice
+          projetistaChecagem = {
+            projetistaid: ANNA_ALICE_ID,
+            name: "Anna Alice",
+          };
           console.log(
             `👤 Projetista para checagem de medida: ${projetistaChecagem.name} (${projetistaChecagem.projetistaid})`
           );
