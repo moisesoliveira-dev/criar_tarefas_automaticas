@@ -485,12 +485,6 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
       // Primeiro agendamento do dia - começar às 09:00
       proximoHorario = "09:00:00";
 
-      // Inserir registro inicial
-      await client.query(
-        "INSERT INTO tb_pontta_checagem_schedule (projetistaid, data_agendamento, proximo_horario_disponivel) VALUES ($1, $2, $3)",
-        [projetistaId, dataFormatada, proximoHorario]
-      );
-
       console.log(`✅ Primeiro agendamento do dia criado: ${proximoHorario}`);
     } else {
       proximoHorario = scheduleResult.rows[0].proximo_horario_disponivel;
@@ -542,10 +536,19 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
       "0"
     )}:${String(dataFimManaus.getMinutes()).padStart(2, "0")}:00`;
 
-    await client.query(
-      "UPDATE tb_pontta_checagem_schedule SET proximo_horario_disponivel = $1, updated_at = CURRENT_TIMESTAMP WHERE projetistaid = $2 AND data_agendamento = $3",
-      [proximoSlot, projetistaId, dataFormatada]
-    );
+    if (scheduleResult.rows.length === 0) {
+      // Inserir registro inicial para primeiro agendamento do dia
+      await client.query(
+        "INSERT INTO tb_pontta_checagem_schedule (projetistaid, data_agendamento, proximo_horario_disponivel) VALUES ($1, $2, $3)",
+        [projetistaId, dataFormatada, proximoSlot]
+      );
+    } else {
+      // Atualizar próximo horário disponível
+      await client.query(
+        "UPDATE tb_pontta_checagem_schedule SET proximo_horario_disponivel = $1, updated_at = CURRENT_TIMESTAMP WHERE projetistaid = $2 AND data_agendamento = $3",
+        [proximoSlot, projetistaId, dataFormatada]
+      );
+    }
 
     console.log(
       `✅ Agendamento confirmado: ${hora.toString().padStart(2, "0")}:${minuto
@@ -648,6 +651,34 @@ async function configurarRodizioVitorInicial() {
   }
 }
 
+// Função para limpar agendamentos de um dia específico (para testes)
+async function limparAgendamentosDia(dataAgendamento) {
+  console.log(`🗑️ Limpando agendamentos do dia ${dataAgendamento}...`);
+
+  try {
+    const client = await pool.connect();
+    const dataFormatada = new Date(dataAgendamento).toISOString().split("T")[0];
+
+    const query =
+      "DELETE FROM tb_pontta_checagem_schedule WHERE data_agendamento = $1";
+    const result = await client.query(query, [dataFormatada]);
+
+    client.release();
+
+    console.log(
+      `✅ Agendamentos do dia ${dataFormatada} removidos. Linhas afetadas: ${result.rowCount}`
+    );
+
+    return result.rowCount;
+  } catch (error) {
+    console.error(
+      `❌ Erro ao limpar agendamentos do dia ${dataAgendamento}:`,
+      error.message
+    );
+    throw error;
+  }
+}
+
 // Função para limpar ordem específica do banco (apenas para testes)
 async function limparOrdemDoBanco(code) {
   console.log(`🗑️ Removendo ordem ${code} do banco para teste...`);
@@ -686,4 +717,5 @@ module.exports = {
   configurarRodizioVitorInicial,
   criarTabelaAgendamentosSeNaoExistir,
   obterProximoHorarioChecagem,
+  limparAgendamentosDia,
 };
