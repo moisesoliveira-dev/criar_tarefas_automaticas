@@ -3,6 +3,8 @@ const {
   testarConexaoBanco,
   criarTabelaSeNaoExistir,
   criarTabelaRodizioSeNaoExistir,
+  criarTabelaAgendamentosSeNaoExistir,
+  configurarRodizioVitorInicial,
   pool,
 } = require("./src/database");
 const {
@@ -155,6 +157,8 @@ async function executarTarefas(horario) {
     await testarConexaoBanco();
     await criarTabelaSeNaoExistir();
     await criarTabelaRodizioSeNaoExistir();
+    await criarTabelaAgendamentosSeNaoExistir();
+    await configurarRodizioVitorInicial();
     console.log("✓ Etapa 0: Conexão com banco e criação de tabelas OK");
 
     console.log("🔄 Etapa 1: Autenticação...");

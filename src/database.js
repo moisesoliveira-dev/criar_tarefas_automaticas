@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+const { calcularDataChecagemMedida } = require("./date-utils");
 require("dotenv").config();
 
 // Configuração da conexão com PostgreSQL
@@ -424,6 +425,190 @@ async function passarRodizioVitorParaProximo(projetistaAtualId) {
   }
 }
 
+// Função para criar tabela de agendamentos de checagem se não existir
+async function criarTabelaAgendamentosSeNaoExistir() {
+  console.log("📋 Verificando se tabela tb_pontta_checagem_schedule existe...");
+
+  try {
+    const client = await pool.connect();
+
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS tb_pontta_checagem_schedule (
+        id SERIAL PRIMARY KEY,
+        projetistaid VARCHAR(255) NOT NULL,
+        data_agendamento DATE NOT NULL,
+        proximo_horario_disponivel TIME NOT NULL DEFAULT '09:00:00',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(projetistaid, data_agendamento)
+      );
+    `;
+
+    await client.query(createTableQuery);
+    console.log(
+      "✅ Tabela tb_pontta_checagem_schedule verificada/criada com sucesso!"
+    );
+
+    client.release();
+    return true;
+  } catch (error) {
+    console.error(
+      "❌ Erro ao criar/verificar tabela de agendamentos:",
+      error.message
+    );
+    throw error;
+  }
+}
+
+// Função para obter/criar próximo horário disponível para checagem de medida
+async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
+  console.log(
+    `⏰ Buscando próximo horário disponível para ${projetistaId} em ${dataChecagem}...`
+  );
+
+  try {
+    const client = await pool.connect();
+
+    // Converter data para formato de data sem horário
+    const dataAgendamento = new Date(dataChecagem);
+    const dataFormatada = dataAgendamento.toISOString().split("T")[0];
+
+    // Buscar horário atual do projetista para o dia
+    let scheduleResult = await client.query(
+      "SELECT proximo_horario_disponivel FROM tb_pontta_checagem_schedule WHERE projetistaid = $1 AND data_agendamento = $2",
+      [projetistaId, dataFormatada]
+    );
+
+    let proximoHorario;
+
+    if (scheduleResult.rows.length === 0) {
+      // Primeiro agendamento do dia - começar às 09:00
+      proximoHorario = "09:00:00";
+
+      // Inserir registro inicial
+      await client.query(
+        "INSERT INTO tb_pontta_checagem_schedule (projetistaid, data_agendamento, proximo_horario_disponivel) VALUES ($1, $2, $3)",
+        [projetistaId, dataFormatada, proximoHorario]
+      );
+
+      console.log(`✅ Primeiro agendamento do dia criado: ${proximoHorario}`);
+    } else {
+      proximoHorario = scheduleResult.rows[0].proximo_horario_disponivel;
+      console.log(`📅 Horário atual encontrado: ${proximoHorario}`);
+    }
+
+    // Verificar se o horário + 1h30min ultrapassa 17:00
+    const [hora, minuto] = proximoHorario.split(":").map(Number);
+    const horarioFim = new Date();
+    horarioFim.setHours(hora, minuto, 0, 0);
+    horarioFim.setMinutes(horarioFim.getMinutes() + 90); // Adicionar 1h30min
+
+    const limiteHorario = new Date();
+    limiteHorario.setHours(17, 0, 0, 0); // 17:00
+
+    if (horarioFim > limiteHorario) {
+      console.log(
+        `⚠️ Horário ${proximoHorario} + 1h30min ultrapassa 17:00, reagendando para próximo dia...`
+      );
+
+      // Calcular próximo dia útil válido para checagem (qua, sex, sab)
+      const proximoDiaChecagem =
+        calcularProximoDiaValidoChecagem(dataAgendamento);
+
+      client.release();
+      return await obterProximoHorarioChecagem(
+        projetistaId,
+        proximoDiaChecagem
+      );
+    }
+
+    // Criar o horário de início e fim para Manaus
+    const dataInicioManaus = new Date(dataAgendamento);
+    dataInicioManaus.setHours(hora, minuto, 0, 0);
+
+    const dataFimManaus = new Date(dataInicioManaus);
+    dataFimManaus.setMinutes(dataFimManaus.getMinutes() + 90);
+
+    // Converter para UTC (Manaus é UTC-4)
+    const dataInicioUTC = new Date(
+      dataInicioManaus.getTime() + 4 * 60 * 60 * 1000
+    );
+    const dataFimUTC = new Date(dataFimManaus.getTime() + 4 * 60 * 60 * 1000);
+    const dataAlertUTC = new Date(dataFimUTC.getTime() - 60 * 60 * 1000); // 1 hora antes do fim
+
+    // Atualizar próximo horário disponível (fim + 0 minutos = próximo slot)
+    const proximoSlot = `${String(dataFimManaus.getHours()).padStart(
+      2,
+      "0"
+    )}:${String(dataFimManaus.getMinutes()).padStart(2, "0")}:00`;
+
+    await client.query(
+      "UPDATE tb_pontta_checagem_schedule SET proximo_horario_disponivel = $1, updated_at = CURRENT_TIMESTAMP WHERE projetistaid = $2 AND data_agendamento = $3",
+      [proximoSlot, projetistaId, dataFormatada]
+    );
+
+    console.log(
+      `✅ Agendamento confirmado: ${hora.toString().padStart(2, "0")}:${minuto
+        .toString()
+        .padStart(2, "0")} - ${dataFimManaus
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${dataFimManaus
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")} (Manaus)`
+    );
+    console.log(`📅 Próximo slot disponível: ${proximoSlot}`);
+
+    client.release();
+
+    return {
+      deadline: dataFimUTC.toISOString(),
+      alert: dataAlertUTC.toISOString(),
+      time: "90", // 1h30min em minutos
+      horarioManausInicio: `${hora.toString().padStart(2, "0")}:${minuto
+        .toString()
+        .padStart(2, "0")}`,
+      horarioManausFim: `${dataFimManaus
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${dataFimManaus
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`,
+      dataAgendada: dataFormatada,
+    };
+  } catch (error) {
+    console.error(
+      "❌ Erro ao obter próximo horário de checagem:",
+      error.message
+    );
+    throw error;
+  }
+}
+
+// Função auxiliar para calcular próximo dia válido para checagem (qua, sex, sab)
+function calcularProximoDiaValidoChecagem(dataAtual) {
+  const proximoDia = new Date(dataAtual);
+  proximoDia.setDate(proximoDia.getDate() + 1);
+
+  while (true) {
+    const diaSemana = proximoDia.getDay();
+    if (diaSemana === 3 || diaSemana === 5 || diaSemana === 6) {
+      // Quarta, sexta ou sábado
+      break;
+    }
+    proximoDia.setDate(proximoDia.getDate() + 1);
+  }
+
+  console.log(
+    `📅 Próximo dia válido para checagem: ${
+      proximoDia.toISOString().split("T")[0]
+    }`
+  );
+  return proximoDia;
+}
+
 // Função para configurar rodízio inicial do Vitor (turn_v) - apenas para setup inicial
 async function configurarRodizioVitorInicial() {
   console.log("🔧 Configurando rodízio inicial do Vitor (turn_v)...");
@@ -499,4 +684,6 @@ module.exports = {
   passarRodizioVitorParaProximo,
   criarTabelaRodizioSeNaoExistir,
   configurarRodizioVitorInicial,
+  criarTabelaAgendamentosSeNaoExistir,
+  obterProximoHorarioChecagem,
 };

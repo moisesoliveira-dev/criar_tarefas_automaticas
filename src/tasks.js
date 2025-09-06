@@ -6,6 +6,8 @@ const {
   passarRodizioParaProximo,
   obterProximoProjetistaVitor,
   passarRodizioVitorParaProximo,
+  criarTabelaAgendamentosSeNaoExistir,
+  obterProximoHorarioChecagem,
 } = require("./database");
 const {
   calcularDataChecagemMedida,
@@ -14,7 +16,14 @@ const {
 require("dotenv").config();
 
 // Função para criar uma task
-async function criarTask(token, ordemId, taskData, numeroAmbiente, projetista) {
+async function criarTask(
+  token,
+  ordemId,
+  taskData,
+  numeroAmbiente,
+  projetista,
+  isChecagemMedida = false
+) {
   console.log(
     `🔨 Criando task ${numeroAmbiente.toString().padStart(2, "0")}: ${
       taskData.title
@@ -34,34 +43,67 @@ async function criarTask(token, ordemId, taskData, numeroAmbiente, projetista) {
     };
 
     console.log(`🔗 URL da task: ${url}`);
-    console.log(`📅 Deadline: ${taskData.deadline}`);
 
-    // Converter para timezone de Manaus para log
-    const deadlineManaus = new Date(taskData.deadline);
-    const manausTime = deadlineManaus.toLocaleString("pt-BR", {
-      timeZone: "America/Manaus",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    console.log(`🕒 Horário em Manaus: ${manausTime}`);
+    let taskPayload;
 
-    const taskPayload = {
-      id: null,
-      title: `${numeroAmbiente.toString().padStart(2, "0")} - ${
-        taskData.title
-      }`,
-      responsible: projetista.projetistaid,
-      comment: null,
-      alert: null,
-      deadline: taskData.deadline,
-      time: null,
-      type: "OTHER",
-      workflowPositionId: null,
-      note: null,
-    };
+    if (isChecagemMedida) {
+      // Para checagem de medida, usar sistema de agendamento
+      const agendamento = await obterProximoHorarioChecagem(
+        projetista.projetistaid,
+        taskData.deadline
+      );
+
+      console.log(
+        `⏰ Agendamento da checagem: ${agendamento.horarioManausInicio} - ${agendamento.horarioManausFim} (Manaus)`
+      );
+      console.log(`📅 Data agendada: ${agendamento.dataAgendada}`);
+      console.log(`🔔 Alerta: ${agendamento.alert}`);
+
+      taskPayload = {
+        id: null,
+        title: `${numeroAmbiente.toString().padStart(2, "0")} - ${
+          taskData.title
+        }`,
+        responsible: projetista.projetistaid,
+        comment: null,
+        alert: agendamento.alert,
+        deadline: agendamento.deadline,
+        time: agendamento.time,
+        type: "OTHER",
+        workflowPositionId: null,
+        note: null,
+      };
+    } else {
+      // Para outras tasks, usar sistema anterior (23:59)
+      console.log(`📅 Deadline: ${taskData.deadline}`);
+
+      // Converter para timezone de Manaus para log
+      const deadlineManaus = new Date(taskData.deadline);
+      const manausTime = deadlineManaus.toLocaleString("pt-BR", {
+        timeZone: "America/Manaus",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      console.log(`🕒 Horário em Manaus: ${manausTime}`);
+
+      taskPayload = {
+        id: null,
+        title: `${numeroAmbiente.toString().padStart(2, "0")} - ${
+          taskData.title
+        }`,
+        responsible: projetista.projetistaid,
+        comment: null,
+        alert: null,
+        deadline: taskData.deadline,
+        time: null,
+        type: "OTHER",
+        workflowPositionId: null,
+        note: null,
+      };
+    }
 
     const response = await axios.post(url, taskPayload, { headers });
 
@@ -153,7 +195,7 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
         const diasAprovacao =
           parseInt(process.env.TASK_DIAS_APROVACAO_EXECUTIVO) || 2;
 
-        // Task 1: Checagem de medida (apenas seg, qua, sex - 2 dias após venda mínimo)
+        // Task 1: Checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo)
         const dataChecagem = calcularDataChecagemMedida(
           ordem.saleDate,
           diasChecagem
@@ -166,7 +208,8 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
             deadline: dataChecagem.toISOString(),
           },
           numeroAmbiente,
-          projetistaChecagem // Usa o projetista específico para checagem (pode ser diferente do Vitor)
+          projetistaChecagem, // Usa o projetista específico para checagem (pode ser diferente do Vitor)
+          true // Indica que é checagem de medida
         );
 
         // Task 2: Revisão do Projeto (2 dias úteis após checagem)
