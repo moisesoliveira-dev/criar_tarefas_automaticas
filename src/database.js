@@ -505,10 +505,12 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
     let proximoHorario;
 
     if (scheduleResult.rows.length === 0 || foiReagendado) {
-      // Primeiro agendamento do dia - começar às 09:00
-      proximoHorario = "09:00:00";
+      // GAMBIARRA: Primeiro agendamento do dia - começar às 07:30 para chegar em 09:00
+      proximoHorario = "07:30:00";
 
-      console.log(`✅ Primeiro agendamento do dia criado: ${proximoHorario}`);
+      console.log(
+        `✅ Primeiro agendamento do dia criado: ${proximoHorario} (GAMBIARRA: será ajustado para 09:00)`
+      );
     } else {
       proximoHorario = scheduleResult.rows[0].proximo_horario_disponivel;
       console.log(`📅 Horário atual encontrado: ${proximoHorario}`);
