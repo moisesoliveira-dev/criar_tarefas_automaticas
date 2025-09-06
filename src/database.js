@@ -470,7 +470,30 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
     const client = await pool.connect();
 
     // Converter data para formato de data sem horário
-    const dataAgendamento = new Date(dataChecagem);
+    let dataAgendamento = new Date(dataChecagem);
+
+    // VERIFICAR SE É DIA VÁLIDO PARA CHECAGEM (qua, sex, sab)
+    const diaSemana = dataAgendamento.getDay();
+    let foiReagendado = false;
+    if (diaSemana !== 3 && diaSemana !== 5 && diaSemana !== 6) {
+      console.log(
+        `⚠️ Dia ${dataAgendamento.toLocaleDateString(
+          "pt-BR"
+        )} não é válido para checagem, reagendando...`
+      );
+
+      // Usar a função existente para calcular próximo dia válido
+      const proximoDiaValido =
+        calcularProximoDiaValidoChecagem(dataAgendamento);
+      console.log(`📅 Próximo dia válido para checagem: ${proximoDiaValido}`);
+      dataAgendamento = new Date(proximoDiaValido);
+      foiReagendado = true;
+
+      console.log(
+        `📅 Reagendado para: ${dataAgendamento.toLocaleDateString("pt-BR")}`
+      );
+    }
+
     const dataFormatada = dataAgendamento.toISOString().split("T")[0];
 
     // Buscar horário atual do projetista para o dia
@@ -481,7 +504,7 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
 
     let proximoHorario;
 
-    if (scheduleResult.rows.length === 0) {
+    if (scheduleResult.rows.length === 0 || foiReagendado) {
       // Primeiro agendamento do dia - começar às 09:00
       proximoHorario = "09:00:00";
 
@@ -651,6 +674,33 @@ async function configurarRodizioVitorInicial() {
   }
 }
 
+// Função para limpar agendamentos de dias anteriores automaticamente
+async function limparAgendamentosAntigos() {
+  console.log("🧹 Limpando agendamentos de dias anteriores...");
+
+  try {
+    const client = await pool.connect();
+    const hoje = new Date().toISOString().split("T")[0];
+
+    const query =
+      "DELETE FROM tb_pontta_checagem_schedule WHERE data_agendamento < $1";
+    const result = await client.query(query, [hoje]);
+
+    client.release();
+
+    if (result.rowCount > 0) {
+      console.log(`✅ ${result.rowCount} agendamentos antigos removidos`);
+    } else {
+      console.log("ℹ️ Nenhum agendamento antigo encontrado");
+    }
+
+    return result.rowCount;
+  } catch (error) {
+    console.error("❌ Erro ao limpar agendamentos antigos:", error.message);
+    throw error;
+  }
+}
+
 // Função para limpar agendamentos de um dia específico (para testes)
 async function limparAgendamentosDia(dataAgendamento) {
   console.log(`🗑️ Limpando agendamentos do dia ${dataAgendamento}...`);
@@ -717,5 +767,6 @@ module.exports = {
   configurarRodizioVitorInicial,
   criarTabelaAgendamentosSeNaoExistir,
   obterProximoHorarioChecagem,
+  limparAgendamentosAntigos,
   limparAgendamentosDia,
 };

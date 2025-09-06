@@ -5,6 +5,7 @@ const {
   criarTabelaRodizioSeNaoExistir,
   criarTabelaAgendamentosSeNaoExistir,
   configurarRodizioVitorInicial,
+  limparAgendamentosAntigos,
   pool,
 } = require("./src/database");
 const {
@@ -159,6 +160,7 @@ async function executarTarefas(horario) {
     await criarTabelaRodizioSeNaoExistir();
     await criarTabelaAgendamentosSeNaoExistir();
     await configurarRodizioVitorInicial();
+    await limparAgendamentosAntigos();
     console.log("✓ Etapa 0: Conexão com banco e criação de tabelas OK");
 
     console.log("🔄 Etapa 1: Autenticação...");
