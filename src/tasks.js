@@ -4,6 +4,8 @@ const {
   obterProximoProjetista,
   obterProximoProjetistaSemAlterar,
   passarRodizioParaProximo,
+  obterProximoProjetistaVitor,
+  passarRodizioVitorParaProximo,
 } = require("./database");
 const {
   calcularDataChecagemMedida,
@@ -127,22 +129,18 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           })`
         );
 
-        // Verificar se é Vitor Libório - ele não faz checagem de medida, sempre atribuir para Anna Alice
+        // Verificar se é Vitor Libório - ele não faz checagem de medida, usar rodízio especial
         const VITOR_LIBORIO_ID = "9ed8829b-7361-4695-a105-e8d3f6e7369a";
-        const ANNA_ALICE_ID = "c70c4e46-459a-4c60-b500-77b59b156d49";
         let projetistaChecagem = projetistaDoAmbiente;
 
         if (projetistaDoAmbiente.projetistaid === VITOR_LIBORIO_ID) {
           console.log(
-            "⚠️ Vitor Libório não faz checagem de medida, atribuindo para Anna Alice..."
+            "⚠️ Vitor Libório não faz checagem de medida, usando rodízio especial..."
           );
-          // Atribuir diretamente para Anna Alice
-          projetistaChecagem = {
-            projetistaid: ANNA_ALICE_ID,
-            name: "Anna Alice",
-          };
+          // Obter projetista do rodízio especial do Vitor (turn_v)
+          projetistaChecagem = await obterProximoProjetistaVitor();
           console.log(
-            `👤 Projetista para checagem de medida: ${projetistaChecagem.name} (${projetistaChecagem.projetistaid})`
+            `👤 Projetista para checagem de medida (rodízio Vitor): ${projetistaChecagem.name} (${projetistaChecagem.projetistaid})`
           );
         }
 
@@ -247,6 +245,12 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
 
         // Passar rodízio para próximo ambiente apenas após criar todas as 4 tasks
         await passarRodizioParaProximo(projetistaDoAmbiente.projetistaid);
+
+        // Se foi o Vitor Libório, também avançar o rodízio especial de checagem
+        if (projetistaDoAmbiente.projetistaid === VITOR_LIBORIO_ID) {
+          await passarRodizioVitorParaProximo(projetistaChecagem.projetistaid);
+          console.log("🔄 Rodízio especial do Vitor também foi avançado");
+        }
 
         // Incrementar número do ambiente
         numeroAmbiente++;

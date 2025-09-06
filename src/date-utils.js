@@ -4,6 +4,12 @@ function isDiaUtil(data) {
   return diaSemana >= 1 && diaSemana <= 5; // 1=segunda, 5=sexta
 }
 
+// Função para verificar se é dia válido para checagem de medida (qua, sex, sab)
+function isDiaValidoChecagem(data) {
+  const diaSemana = data.getDay();
+  return diaSemana === 3 || diaSemana === 5 || diaSemana === 6; // 3=quarta, 5=sexta, 6=sábado
+}
+
 // Função para adicionar dias úteis a uma data
 function adicionarDiasUteis(dataInicial, diasUteis) {
   const resultado = new Date(dataInicial);
@@ -28,7 +34,7 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
   return dataFinal;
 }
 
-// Função para calcular data de checagem de medida (apenas seg, qua, sex - 2 dias após venda mínimo)
+// Função para calcular data de checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo)
 function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   const dataVendaObj = new Date(dataVenda);
 
@@ -41,11 +47,18 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
 
   const dataMinima = adicionarDiasUteis(dataVendaObj, diasComExtraChecagem);
 
-  // Verificar se a data mínima cai em seg, qua ou sex
+  // Verificar se a data mínima cai em qua, sex ou sab
   const diaSemana = dataMinima.getDay();
 
-  if (diaSemana === 1 || diaSemana === 3 || diaSemana === 5) {
-    // Já é seg, qua ou sex - manter a data
+  if (diaSemana === 3 || diaSemana === 5 || diaSemana === 6) {
+    // Já é qua, sex ou sab - manter a data
+    const ano = dataMinima.getFullYear();
+    const mes = dataMinima.getMonth();
+    const dia = dataMinima.getDate();
+    return new Date(ano, mes, dia, 23, 59, 59, 999);
+  } else if (diaSemana === 1) {
+    // Segunda -> próxima quarta
+    dataMinima.setDate(dataMinima.getDate() + 2);
     const ano = dataMinima.getFullYear();
     const mes = dataMinima.getMonth();
     const dia = dataMinima.getDate();
@@ -65,10 +78,8 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
     const dia = dataMinima.getDate();
     return new Date(ano, mes, dia, 23, 59, 59, 999);
   } else {
-    // Sábado ou domingo -> próxima segunda
-    while (!isDiaUtil(dataMinima) || ![1, 3, 5].includes(dataMinima.getDay())) {
-      dataMinima.setDate(dataMinima.getDate() + 1);
-    }
+    // Domingo -> próximo sábado (6 dias)
+    dataMinima.setDate(dataMinima.getDate() + 6);
     const ano = dataMinima.getFullYear();
     const mes = dataMinima.getMonth();
     const dia = dataMinima.getDate();
@@ -103,6 +114,7 @@ function obterDatasConsulta() {
 
 module.exports = {
   isDiaUtil,
+  isDiaValidoChecagem,
   adicionarDiasUteis,
   calcularDataChecagemMedida,
   obterDatasConsulta,

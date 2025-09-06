@@ -288,6 +288,7 @@ async function criarTabelaRodizioSeNaoExistir() {
         projetistaid VARCHAR(255) NOT NULL UNIQUE,
         turn BOOLEAN NOT NULL DEFAULT false,
         name VARCHAR(255) NOT NULL,
+        turn_v BOOLEAN DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -295,11 +296,167 @@ async function criarTabelaRodizioSeNaoExistir() {
     await client.query(createTableQuery);
     console.log("✅ Tabela tb_pontta_rotation verificada/criada com sucesso!");
 
+    // Verificar se a coluna turn_v existe, se não existir, adicionar
+    const checkColumnQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='tb_pontta_rotation' AND column_name='turn_v';
+    `;
+
+    const columnResult = await client.query(checkColumnQuery);
+
+    if (columnResult.rows.length === 0) {
+      console.log(
+        "📋 Adicionando coluna turn_v na tabela tb_pontta_rotation..."
+      );
+      await client.query(
+        "ALTER TABLE tb_pontta_rotation ADD COLUMN turn_v BOOLEAN DEFAULT NULL"
+      );
+      console.log("✅ Coluna turn_v adicionada com sucesso!");
+    }
+
     client.release();
     return true;
   } catch (error) {
     console.error(
       "❌ Erro ao criar/verificar tabela de rodízio:",
+      error.message
+    );
+    throw error;
+  }
+}
+
+// Função para obter o próximo projetista do rodízio específico do Vitor (turn_v)
+async function obterProximoProjetistaVitor() {
+  console.log(
+    "🔄 Buscando próximo projetista para checagem do Vitor (turn_v)..."
+  );
+
+  try {
+    const client = await pool.connect();
+    const query =
+      "SELECT projetistaid, name FROM tb_pontta_rotation WHERE turn_v = true AND turn_v IS NOT NULL LIMIT 1";
+    const result = await client.query(query);
+
+    if (result.rows.length === 0) {
+      throw new Error("Nenhum projetista encontrado com turn_v = true");
+    }
+
+    const projetistaAtual = result.rows[0];
+    console.log(
+      `✅ Projetista da vez para checagem do Vitor: ${projetistaAtual.name} (ID: ${projetistaAtual.projetistaid})`
+    );
+
+    client.release();
+    return projetistaAtual;
+  } catch (error) {
+    console.error(
+      "❌ Erro ao buscar próximo projetista do rodízio Vitor:",
+      error.message
+    );
+    throw error;
+  }
+}
+
+// Função para passar o rodízio do Vitor para o próximo projetista (turn_v)
+async function passarRodizioVitorParaProximo(projetistaAtualId) {
+  console.log(
+    `🔄 Passando rodízio Vitor do projetista ${projetistaAtualId}...`
+  );
+
+  try {
+    const client = await pool.connect();
+
+    await client.query("BEGIN");
+
+    // 1. Marcar o atual como false
+    await client.query(
+      "UPDATE tb_pontta_rotation SET turn_v = false WHERE projetistaid = $1",
+      [projetistaAtualId]
+    );
+
+    // 2. Buscar o próximo (ordenado por ID, apenas onde turn_v não é NULL)
+    const proximoResult = await client.query(
+      `
+      SELECT projetistaid, name 
+      FROM tb_pontta_rotation 
+      WHERE projetistaid > $1 AND turn_v IS NOT NULL
+      ORDER BY projetistaid ASC 
+      LIMIT 1
+    `,
+      [projetistaAtualId]
+    );
+
+    let proximoProjetista;
+
+    if (proximoResult.rows.length > 0) {
+      // Próximo na sequência
+      proximoProjetista = proximoResult.rows[0];
+    } else {
+      // Volta para o primeiro (ciclo completo) - apenas onde turn_v não é NULL
+      const primeiroResult = await client.query(`
+        SELECT projetistaid, name 
+        FROM tb_pontta_rotation 
+        WHERE turn_v IS NOT NULL
+        ORDER BY projetistaid ASC 
+        LIMIT 1
+      `);
+      proximoProjetista = primeiroResult.rows[0];
+    }
+
+    // 3. Marcar o próximo como true
+    await client.query(
+      "UPDATE tb_pontta_rotation SET turn_v = true WHERE projetistaid = $1",
+      [proximoProjetista.projetistaid]
+    );
+
+    await client.query("COMMIT");
+    client.release();
+
+    console.log(
+      `✅ Rodízio Vitor atualizado! Próximo: ${proximoProjetista.name} (ID: ${proximoProjetista.projetistaid})`
+    );
+
+    return proximoProjetista;
+  } catch (error) {
+    console.error("❌ Erro ao atualizar rodízio Vitor:", error.message);
+    throw error;
+  }
+}
+
+// Função para configurar rodízio inicial do Vitor (turn_v) - apenas para setup inicial
+async function configurarRodizioVitorInicial() {
+  console.log("🔧 Configurando rodízio inicial do Vitor (turn_v)...");
+
+  try {
+    const client = await pool.connect();
+
+    // Verificar se já existe algum com turn_v = true
+    const verificarResult = await client.query(
+      "SELECT COUNT(*) as count FROM tb_pontta_rotation WHERE turn_v = true"
+    );
+
+    if (parseInt(verificarResult.rows[0].count) === 0) {
+      // Se nenhum tem turn_v = true, configurar Anna Alice como primeira
+      const annaAliceId = "c70c4e46-459a-4c60-b500-77b59b156d49";
+
+      await client.query(
+        "UPDATE tb_pontta_rotation SET turn_v = true WHERE projetistaid = $1",
+        [annaAliceId]
+      );
+
+      console.log(
+        "✅ Anna Alice configurada como primeira no rodízio do Vitor"
+      );
+    } else {
+      console.log("ℹ️ Rodízio do Vitor já está configurado");
+    }
+
+    client.release();
+    return true;
+  } catch (error) {
+    console.error(
+      "❌ Erro ao configurar rodízio inicial do Vitor:",
       error.message
     );
     throw error;
@@ -338,5 +495,8 @@ module.exports = {
   obterProximoProjetista,
   obterProximoProjetistaSemAlterar,
   passarRodizioParaProximo,
+  obterProximoProjetistaVitor,
+  passarRodizioVitorParaProximo,
   criarTabelaRodizioSeNaoExistir,
+  configurarRodizioVitorInicial,
 };
