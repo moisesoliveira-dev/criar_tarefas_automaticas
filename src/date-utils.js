@@ -1,13 +1,137 @@
-// Função para verificar se é dia útil (seg-sex)
-function isDiaUtil(data) {
-  const diaSemana = data.getDay();
-  return diaSemana >= 1 && diaSemana <= 5; // 1=segunda, 5=sexta
+// Função para verificar se é feriado em Manaus (municipal ou nacional)
+function isFeriadoManaus(data) {
+  const dia = data.getDate();
+  const mes = data.getMonth() + 1; // 0-11 -> 1-12
+  const ano = data.getFullYear();
+
+  // Feriados nacionais fixos
+  const feriadosFixos = [
+    { dia: 1, mes: 1 }, // Ano Novo
+    { dia: 21, mes: 4 }, // Tiradentes
+    { dia: 1, mes: 5 }, // Dia do Trabalho
+    { dia: 7, mes: 9 }, // Independência do Brasil
+    { dia: 12, mes: 10 }, // Nossa Senhora Aparecida
+    { dia: 2, mes: 11 }, // Finados
+    { dia: 15, mes: 11 }, // Proclamação da República
+    { dia: 20, mes: 11 }, // Dia da Consciência Negra
+    { dia: 24, mes: 12 }, // Véspera de Natal
+    { dia: 25, mes: 12 }, // Natal
+    { dia: 31, mes: 12 }, // Véspera de Ano Novo
+    // Feriados estaduais do Amazonas
+    { dia: 5, mes: 9 }, // Elevação do Amazonas à categoria de província
+    // Feriados municipais de Manaus
+    { dia: 8, mes: 12 }, // Nossa Senhora da Conceição (padroeira de Manaus)
+    { dia: 24, mes: 10 }, // Aniversário de Manaus
+  ];
+
+  // Verificar feriados fixos
+  for (const feriado of feriadosFixos) {
+    if (dia === feriado.dia && mes === feriado.mes) {
+      return true;
+    }
+  }
+
+  // Feriados móveis (calculados para cada ano)
+  const feriadosMoveis = calcularFeriadosMoveis(ano);
+
+  const dataStr = `${ano}-${String(mes).padStart(2, "0")}-${String(
+    dia
+  ).padStart(2, "0")}`;
+
+  return feriadosMoveis.includes(dataStr);
 }
 
-// Função para verificar se é dia válido para checagem de medida (qua, sex, sab)
+// Função para calcular feriados móveis baseados na Páscoa
+function calcularFeriadosMoveis(ano) {
+  const pascoa = calcularPascoa(ano);
+  const feriadosMoveis = [];
+
+  // Adicionar a própria Páscoa (domingo, mas registramos)
+  feriadosMoveis.push(formatarData(pascoa));
+
+  // Carnaval (47 dias antes da Páscoa - terça-feira)
+  const carnaval = new Date(pascoa);
+  carnaval.setDate(carnaval.getDate() - 47);
+  feriadosMoveis.push(formatarData(carnaval));
+
+  // Segunda de Carnaval (48 dias antes da Páscoa)
+  const segundaCarnaval = new Date(pascoa);
+  segundaCarnaval.setDate(segundaCarnaval.getDate() - 48);
+  feriadosMoveis.push(formatarData(segundaCarnaval));
+
+  // Sexta-feira Santa (2 dias antes da Páscoa)
+  const sextaSanta = new Date(pascoa);
+  sextaSanta.setDate(sextaSanta.getDate() - 2);
+  feriadosMoveis.push(formatarData(sextaSanta));
+
+  // Corpus Christi (60 dias depois da Páscoa)
+  const corpusChristi = new Date(pascoa);
+  corpusChristi.setDate(corpusChristi.getDate() + 60);
+  feriadosMoveis.push(formatarData(corpusChristi));
+
+  return feriadosMoveis;
+}
+
+// Função para calcular a data da Páscoa (Algoritmo de Meeus)
+function calcularPascoa(ano) {
+  const a = ano % 19;
+  const b = Math.floor(ano / 100);
+  const c = ano % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31);
+  const dia = ((h + l - 7 * m + 114) % 31) + 1;
+
+  return new Date(ano, mes - 1, dia);
+}
+
+// Função auxiliar para formatar data como string YYYY-MM-DD
+function formatarData(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+// Função para verificar se é dia útil (seg-sex e não feriado)
+function isDiaUtil(data) {
+  const diaSemana = data.getDay();
+  const fimDeSemana = diaSemana === 0 || diaSemana === 6; // 0=domingo, 6=sábado
+
+  if (fimDeSemana) {
+    return false;
+  }
+
+  // Verificar se é feriado
+  if (isFeriadoManaus(data)) {
+    return false;
+  }
+
+  return true; // Segunda a sexta e não é feriado
+}
+
+// Função para verificar se é dia válido para checagem de medida (qua, sex, sab e não feriado)
 function isDiaValidoChecagem(data) {
   const diaSemana = data.getDay();
-  return diaSemana === 3 || diaSemana === 5 || diaSemana === 6; // 3=quarta, 5=sexta, 6=sábado
+  const isDiaPermitido = diaSemana === 3 || diaSemana === 5 || diaSemana === 6; // 3=quarta, 5=sexta, 6=sábado
+
+  if (!isDiaPermitido) {
+    return false;
+  }
+
+  // Verificar se é feriado
+  if (isFeriadoManaus(data)) {
+    return false;
+  }
+
+  return true;
 }
 
 // Função para adicionar dias úteis a uma data
@@ -34,7 +158,7 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
   return dataFinal;
 }
 
-// Função para calcular data de checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo)
+// Função para calcular data de checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo, excluindo feriados)
 function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   const dataVendaObj = new Date(dataVenda);
 
@@ -47,44 +171,18 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
 
   const dataMinima = adicionarDiasUteis(dataVendaObj, diasComExtraChecagem);
 
-  // Verificar se a data mínima cai em qua, sex ou sab
-  const diaSemana = dataMinima.getDay();
+  // Avançar para o próximo dia válido (qua, sex ou sab) que não seja feriado
+  let dataFinal = new Date(dataMinima);
 
-  if (diaSemana === 3 || diaSemana === 5 || diaSemana === 6) {
-    // Já é qua, sex ou sab - manter a data
-    const ano = dataMinima.getFullYear();
-    const mes = dataMinima.getMonth();
-    const dia = dataMinima.getDate();
-    return new Date(ano, mes, dia, 23, 59, 59, 999);
-  } else if (diaSemana === 1) {
-    // Segunda -> próxima quarta
-    dataMinima.setDate(dataMinima.getDate() + 2);
-    const ano = dataMinima.getFullYear();
-    const mes = dataMinima.getMonth();
-    const dia = dataMinima.getDate();
-    return new Date(ano, mes, dia, 23, 59, 59, 999);
-  } else if (diaSemana === 2) {
-    // Terça -> próxima quarta
-    dataMinima.setDate(dataMinima.getDate() + 1);
-    const ano = dataMinima.getFullYear();
-    const mes = dataMinima.getMonth();
-    const dia = dataMinima.getDate();
-    return new Date(ano, mes, dia, 23, 59, 59, 999);
-  } else if (diaSemana === 4) {
-    // Quinta -> próxima sexta
-    dataMinima.setDate(dataMinima.getDate() + 1);
-    const ano = dataMinima.getFullYear();
-    const mes = dataMinima.getMonth();
-    const dia = dataMinima.getDate();
-    return new Date(ano, mes, dia, 23, 59, 59, 999);
-  } else {
-    // Domingo -> próximo sábado (6 dias)
-    dataMinima.setDate(dataMinima.getDate() + 6);
-    const ano = dataMinima.getFullYear();
-    const mes = dataMinima.getMonth();
-    const dia = dataMinima.getDate();
-    return new Date(ano, mes, dia, 23, 59, 59, 999);
+  while (!isDiaValidoChecagem(dataFinal)) {
+    dataFinal.setDate(dataFinal.getDate() + 1);
   }
+
+  const ano = dataFinal.getFullYear();
+  const mes = dataFinal.getMonth();
+  const dia = dataFinal.getDate();
+
+  return new Date(ano, mes, dia, 23, 59, 59, 999);
 }
 
 // Função para obter as datas do dia atual para consulta na API
