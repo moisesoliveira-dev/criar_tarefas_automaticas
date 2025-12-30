@@ -8,10 +8,13 @@ const {
   passarRodizioVitorParaProximo,
   criarTabelaAgendamentosSeNaoExistir,
   obterProximoHorarioChecagem,
+  verificarConflitoChecagemPorPedido,
+  registrarChecagemPedido,
 } = require("./database");
 const {
   calcularDataChecagemMedida,
   adicionarDiasUteis,
+  isDiaValidoChecagem,
 } = require("./date-utils");
 require("dotenv").config();
 
@@ -196,10 +199,64 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           parseInt(process.env.TASK_DIAS_APROVACAO_EXECUTIVO) || 2;
 
         // Task 1: Checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo)
-        const dataChecagem = calcularDataChecagemMedida(
+        let dataChecagem = calcularDataChecagemMedida(
           ordem.saleDate,
           diasChecagem
         );
+
+        // Verificar conflito: o atendente já tem checagem de OUTRO pedido nesse dia?
+        let temConflito = await verificarConflitoChecagemPorPedido(
+          projetistaChecagem.projetistaid,
+          dataChecagem,
+          ordem.id
+        );
+
+        // Se tem conflito, avançar para o próximo dia válido até encontrar um sem conflito
+        while (temConflito) {
+          console.log(
+            `🔄 Conflito detectado! Avançando checagem para próximo dia válido...`
+          );
+
+          // Avançar para o próximo dia
+          dataChecagem.setDate(dataChecagem.getDate() + 1);
+
+          // Encontrar próximo dia válido (qua, sex, sab e não feriado/recesso)
+          while (!isDiaValidoChecagem(dataChecagem)) {
+            dataChecagem.setDate(dataChecagem.getDate() + 1);
+          }
+
+          // Ajustar horário para 23:59
+          dataChecagem = new Date(
+            dataChecagem.getFullYear(),
+            dataChecagem.getMonth(),
+            dataChecagem.getDate(),
+            23,
+            59,
+            59,
+            999
+          );
+
+          console.log(
+            `📅 Nova data de checagem: ${dataChecagem.toLocaleDateString(
+              "pt-BR"
+            )}`
+          );
+
+          // Verificar novamente se tem conflito na nova data
+          temConflito = await verificarConflitoChecagemPorPedido(
+            projetistaChecagem.projetistaid,
+            dataChecagem,
+            ordem.id
+          );
+        }
+
+        // Registrar a checagem para este pedido/atendente/data
+        await registrarChecagemPedido(
+          projetistaChecagem.projetistaid,
+          ordem.id,
+          dataChecagem
+        );
+
         const task1 = await criarTask(
           token,
           ordem.id,
@@ -212,7 +269,7 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           true // Indica que é checagem de medida
         );
 
-        // Task 2: Revisão do Projeto (2 dias úteis após checagem)
+        // Task 2: Revisão do Projeto (2 dias úteis após checagem - recalculado com base na data de checagem possivelmente ajustada)
         const dataRevisao = adicionarDiasUteis(dataChecagem, diasRevisao);
         const task2 = await criarTask(
           token,

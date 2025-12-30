@@ -753,6 +753,146 @@ async function limparOrdemDoBanco(code) {
   }
 }
 
+// Função para criar tabela de controle de checagens por pedido se não existir
+async function criarTabelaChecagemPedidoSeNaoExistir() {
+  console.log("📋 Verificando se tabela tb_pontta_checagem_pedido existe...");
+
+  try {
+    const client = await pool.connect();
+
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS tb_pontta_checagem_pedido (
+        id SERIAL PRIMARY KEY,
+        projetistaid VARCHAR(255) NOT NULL,
+        sales_order_id VARCHAR(255) NOT NULL,
+        data_checagem DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_checagem_projetista_data 
+      ON tb_pontta_checagem_pedido (projetistaid, data_checagem);
+      
+      CREATE INDEX IF NOT EXISTS idx_checagem_pedido 
+      ON tb_pontta_checagem_pedido (sales_order_id);
+    `;
+
+    await client.query(createTableQuery);
+    console.log(
+      "✅ Tabela tb_pontta_checagem_pedido verificada/criada com sucesso!"
+    );
+
+    client.release();
+    return true;
+  } catch (error) {
+    console.error(
+      "❌ Erro ao criar/verificar tabela de checagem por pedido:",
+      error.message
+    );
+    throw error;
+  }
+}
+
+// Função para verificar se o atendente já tem checagem de outro pedido no dia
+async function verificarConflitoChecagemPorPedido(
+  projetistaId,
+  dataChecagem,
+  salesOrderId
+) {
+  console.log(
+    `🔍 Verificando conflito de checagem para ${projetistaId} em ${dataChecagem} (pedido ${salesOrderId})...`
+  );
+
+  try {
+    const client = await pool.connect();
+
+    const dataFormatada = new Date(dataChecagem).toISOString().split("T")[0];
+
+    // Buscar se existe checagem de OUTRO pedido nesse dia para esse projetista
+    const result = await client.query(
+      `SELECT sales_order_id FROM tb_pontta_checagem_pedido 
+       WHERE projetistaid = $1 
+       AND data_checagem = $2 
+       AND sales_order_id != $3
+       LIMIT 1`,
+      [projetistaId, dataFormatada, salesOrderId]
+    );
+
+    client.release();
+
+    if (result.rows.length > 0) {
+      console.log(
+        `⚠️ CONFLITO: Projetista ${projetistaId} já tem checagem do pedido ${result.rows[0].sales_order_id} em ${dataFormatada}`
+      );
+      return true; // Tem conflito
+    }
+
+    console.log(`✅ Sem conflito de checagem para ${dataFormatada}`);
+    return false; // Não tem conflito
+  } catch (error) {
+    console.error("❌ Erro ao verificar conflito de checagem:", error.message);
+    throw error;
+  }
+}
+
+// Função para registrar checagem agendada por pedido
+async function registrarChecagemPedido(
+  projetistaId,
+  salesOrderId,
+  dataChecagem
+) {
+  console.log(
+    `📝 Registrando checagem do pedido ${salesOrderId} para ${projetistaId} em ${dataChecagem}...`
+  );
+
+  try {
+    const client = await pool.connect();
+
+    const dataFormatada = new Date(dataChecagem).toISOString().split("T")[0];
+
+    // Inserir registro da checagem
+    await client.query(
+      `INSERT INTO tb_pontta_checagem_pedido (projetistaid, sales_order_id, data_checagem) 
+       VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+      [projetistaId, salesOrderId, dataFormatada]
+    );
+
+    console.log(
+      `✅ Checagem registrada: pedido ${salesOrderId} -> ${projetistaId} em ${dataFormatada}`
+    );
+
+    client.release();
+    return true;
+  } catch (error) {
+    console.error("❌ Erro ao registrar checagem do pedido:", error.message);
+    throw error;
+  }
+}
+
+// Função para limpar checagens antigas (mais de 90 dias)
+async function limparChecagensPedidoAntigas() {
+  console.log("🧹 Limpando checagens de pedidos antigas...");
+
+  try {
+    const client = await pool.connect();
+
+    const result = await client.query(
+      `DELETE FROM tb_pontta_checagem_pedido 
+       WHERE data_checagem < CURRENT_DATE - INTERVAL '90 days'`
+    );
+
+    console.log(
+      `✅ ${result.rowCount} registros de checagem antigos removidos`
+    );
+
+    client.release();
+    return result.rowCount;
+  } catch (error) {
+    console.error("❌ Erro ao limpar checagens antigas:", error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   pool,
   testarConexaoBanco,
@@ -771,4 +911,8 @@ module.exports = {
   obterProximoHorarioChecagem,
   limparAgendamentosAntigos,
   limparAgendamentosDia,
+  criarTabelaChecagemPedidoSeNaoExistir,
+  verificarConflitoChecagemPorPedido,
+  registrarChecagemPedido,
+  limparChecagensPedidoAntigas,
 };
