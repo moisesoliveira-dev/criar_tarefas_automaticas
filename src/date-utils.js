@@ -100,7 +100,25 @@ function formatarData(data) {
   return `${ano}-${mes}-${dia}`;
 }
 
-// Função para verificar se é dia útil (seg-sex e não feriado)
+// Função para verificar se está no período de recesso da loja (20/12 a 21/01)
+function isPeriodoRecesso(data) {
+  const dia = data.getDate();
+  const mes = data.getMonth() + 1; // 0-11 -> 1-12
+
+  // De 20/12 até 31/12
+  if (mes === 12 && dia >= 20) {
+    return true;
+  }
+
+  // De 01/01 até 21/01
+  if (mes === 1 && dia <= 21) {
+    return true;
+  }
+
+  return false;
+}
+
+// Função para verificar se é dia útil (seg-sex, não feriado e não recesso)
 function isDiaUtil(data) {
   const diaSemana = data.getDay();
   const fimDeSemana = diaSemana === 0 || diaSemana === 6; // 0=domingo, 6=sábado
@@ -114,10 +132,15 @@ function isDiaUtil(data) {
     return false;
   }
 
-  return true; // Segunda a sexta e não é feriado
+  // Verificar se está no período de recesso
+  if (isPeriodoRecesso(data)) {
+    return false;
+  }
+
+  return true; // Segunda a sexta, não é feriado e não está em recesso
 }
 
-// Função para verificar se é dia válido para checagem de medida (qua, sex, sab e não feriado)
+// Função para verificar se é dia válido para checagem de medida (qua, sex, sab, não feriado e não recesso)
 function isDiaValidoChecagem(data) {
   const diaSemana = data.getDay();
   const isDiaPermitido = diaSemana === 3 || diaSemana === 5 || diaSemana === 6; // 3=quarta, 5=sexta, 6=sábado
@@ -128,6 +151,11 @@ function isDiaValidoChecagem(data) {
 
   // Verificar se é feriado
   if (isFeriadoManaus(data)) {
+    return false;
+  }
+
+  // Verificar se está no período de recesso
+  if (isPeriodoRecesso(data)) {
     return false;
   }
 
