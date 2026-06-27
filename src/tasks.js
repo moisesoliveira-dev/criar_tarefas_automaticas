@@ -13,6 +13,7 @@ const {
 } = require("./database");
 const {
   calcularDataChecagemMedida,
+  calcularDataAprovacaoExecutivo,
   adicionarDiasUteis,
   isDiaValidoChecagem,
 } = require("./date-utils");
@@ -155,10 +156,10 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
     // Variável para numeração sequencial por ambiente
     let numeroAmbiente = 1;
 
-    // Para cada ambiente, criar 4 tasks
+    // Para cada ambiente, criar 5 tasks
     for (const ambiente of ambientes) {
       console.log(
-        `🔨 Criando 4 tasks para o ambiente ${numeroAmbiente
+        `🔨 Criando 5 tasks para o ambiente ${numeroAmbiente
           .toString()
           .padStart(2, "0")}: "${ambiente}"`
       );
@@ -194,11 +195,12 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           parseInt(process.env.TASK_DIAS_CHECAGEM_MEDIDA) || 2;
         const diasRevisao =
           parseInt(process.env.TASK_DIAS_REVISAO_PROJETO) || 2;
-        const diasEnvio = parseInt(process.env.TASK_DIAS_ENVIO_CLIENTE) || 2;
+        const diasProjetoExecutivo =
+          parseInt(process.env.TASK_DIAS_PROJETO_EXECUTIVO) || 2;
         const diasAprovacao =
           parseInt(process.env.TASK_DIAS_APROVACAO_EXECUTIVO) || 2;
 
-        // Task 1: Checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo)
+        // Task 1: Checagem de medida (apenas qua, sex - 2 dias após venda mínimo)
         let dataChecagem = calcularDataChecagemMedida(
           ordem.saleDate,
           diasChecagem
@@ -220,7 +222,7 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           // Avançar para o próximo dia
           dataChecagem.setDate(dataChecagem.getDate() + 1);
 
-          // Encontrar próximo dia válido (qua, sex, sab e não feriado/recesso)
+          // Encontrar próximo dia válido (qua, sex e não feriado/recesso)
           while (!isDiaValidoChecagem(dataChecagem)) {
             dataChecagem.setDate(dataChecagem.getDate() + 1);
           }
@@ -282,9 +284,25 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           projetistaDoAmbiente
         );
 
-        // Task 3: Envio para o Cliente (2 dias úteis após revisão)
-        const dataEnvio = adicionarDiasUteis(dataRevisao, diasEnvio);
+        // Task 3: Projeto Executivo (2 dias úteis após revisão)
+        const dataProjetoExecutivo = adicionarDiasUteis(
+          dataRevisao,
+          diasProjetoExecutivo
+        );
         const task3 = await criarTask(
+          token,
+          ordem.id,
+          {
+            title: `${ambiente} Projeto Executivo`,
+            deadline: dataProjetoExecutivo.toISOString(),
+          },
+          numeroAmbiente,
+          projetistaDoAmbiente
+        );
+
+        // Task 4: Envio para o Cliente (mesmo prazo do Projeto Executivo)
+        const dataEnvio = new Date(dataProjetoExecutivo);
+        const task4 = await criarTask(
           token,
           ordem.id,
           {
@@ -295,9 +313,12 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           projetistaDoAmbiente
         );
 
-        // Task 4: Aprovação do Projeto Executivo (2 dias úteis após envio)
-        const dataAprovacao = adicionarDiasUteis(dataEnvio, diasAprovacao);
-        const task4 = await criarTask(
+        // Task 5: Aprovação do Projeto Executivo (2 dias úteis, sempre em sábado)
+        const dataAprovacao = calcularDataAprovacaoExecutivo(
+          dataProjetoExecutivo,
+          diasAprovacao
+        );
+        const task5 = await criarTask(
           token,
           ordem.id,
           {
@@ -317,33 +338,43 @@ async function processarAmbientesECriarTasks(token, detalhesOrdens) {
           tasks: [
             { tipo: "checagem", data: dataChecagem.toISOString(), task: task1 },
             { tipo: "revisao", data: dataRevisao.toISOString(), task: task2 },
-            { tipo: "envio", data: dataEnvio.toISOString(), task: task3 },
+            {
+              tipo: "projeto_executivo",
+              data: dataProjetoExecutivo.toISOString(),
+              task: task3,
+            },
+            { tipo: "envio", data: dataEnvio.toISOString(), task: task4 },
             {
               tipo: "aprovacao",
               data: dataAprovacao.toISOString(),
-              task: task4,
+              task: task5,
             },
           ],
         });
 
         console.log(
-          `✅ 4 tasks criadas para ambiente ${numeroAmbiente
+          `✅ 5 tasks criadas para ambiente ${numeroAmbiente
             .toString()
             .padStart(2, "0")} "${ambiente}" na ordem ${ordem.code}:`
         );
-        console.log(`   � Responsável: ${projetistaDoAmbiente.name}`);
+        console.log(`   Responsável: ${projetistaDoAmbiente.name}`);
         console.log(
-          `   �📅 Checagem: ${dataChecagem.toLocaleDateString("pt-BR")}`
+          `   📅 Checagem: ${dataChecagem.toLocaleDateString("pt-BR")}`
         );
         console.log(
           `   📅 Revisão: ${dataRevisao.toLocaleDateString("pt-BR")}`
+        );
+        console.log(
+          `   📅 Projeto Executivo: ${dataProjetoExecutivo.toLocaleDateString(
+            "pt-BR"
+          )}`
         );
         console.log(`   📅 Envio: ${dataEnvio.toLocaleDateString("pt-BR")}`);
         console.log(
           `   📅 Aprovação: ${dataAprovacao.toLocaleDateString("pt-BR")}`
         );
 
-        // Passar rodízio para próximo ambiente apenas após criar todas as 4 tasks
+        // Passar rodízio para próximo ambiente apenas após criar todas as 5 tasks
         await passarRodizioParaProximo(projetistaDoAmbiente.projetistaid);
 
         // Se foi o Vitor Libório, também avançar o rodízio especial de checagem

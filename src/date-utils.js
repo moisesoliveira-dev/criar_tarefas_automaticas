@@ -140,10 +140,10 @@ function isDiaUtil(data) {
   return true; // Segunda a sexta, não é feriado e não está em recesso
 }
 
-// Função para verificar se é dia válido para checagem de medida (qua, sex, sab, não feriado e não recesso)
+// Função para verificar se é dia válido para checagem de medida (qua, sex, não feriado e não recesso)
 function isDiaValidoChecagem(data) {
   const diaSemana = data.getDay();
-  const isDiaPermitido = diaSemana === 3 || diaSemana === 5 || diaSemana === 6; // 3=quarta, 5=sexta, 6=sábado
+  const isDiaPermitido = diaSemana === 3 || diaSemana === 5; // 3=quarta, 5=sexta
 
   if (!isDiaPermitido) {
     return false;
@@ -186,7 +186,7 @@ function adicionarDiasUteis(dataInicial, diasUteis) {
   return dataFinal;
 }
 
-// Função para calcular data de checagem de medida (apenas qua, sex, sab - 2 dias após venda mínimo, excluindo feriados)
+// Função para calcular data de checagem de medida (apenas qua, sex - 2 dias após venda mínimo, excluindo feriados)
 function calcularDataChecagemMedida(dataVenda, diasMinimos) {
   const dataVendaObj = new Date(dataVenda);
 
@@ -199,10 +199,26 @@ function calcularDataChecagemMedida(dataVenda, diasMinimos) {
 
   const dataMinima = adicionarDiasUteis(dataVendaObj, diasComExtraChecagem);
 
-  // Avançar para o próximo dia válido (qua, sex ou sab) que não seja feriado
+  // Avançar para o próximo dia válido (qua ou sex) que não seja feriado
   let dataFinal = new Date(dataMinima);
 
   while (!isDiaValidoChecagem(dataFinal)) {
+    dataFinal.setDate(dataFinal.getDate() + 1);
+  }
+
+  const ano = dataFinal.getFullYear();
+  const mes = dataFinal.getMonth();
+  const dia = dataFinal.getDate();
+
+  return new Date(ano, mes, dia, 23, 59, 59, 999);
+}
+
+// Aprovação do Projeto Executivo: N dias úteis após o projeto executivo, sempre em sábado
+function calcularDataAprovacaoExecutivo(dataProjetoExecutivo, diasUteis) {
+  const dataComDias = adicionarDiasUteis(dataProjetoExecutivo, diasUteis);
+  const dataFinal = new Date(dataComDias);
+
+  while (dataFinal.getDay() !== 6) {
     dataFinal.setDate(dataFinal.getDate() + 1);
   }
 
@@ -243,5 +259,6 @@ module.exports = {
   isDiaValidoChecagem,
   adicionarDiasUteis,
   calcularDataChecagemMedida,
+  calcularDataAprovacaoExecutivo,
   obterDatasConsulta,
 };

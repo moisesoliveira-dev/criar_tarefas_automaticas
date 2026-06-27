@@ -472,10 +472,10 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
     // Converter data para formato de data sem horário
     let dataAgendamento = new Date(dataChecagem);
 
-    // VERIFICAR SE É DIA VÁLIDO PARA CHECAGEM (qua, sex, sab)
+    // VERIFICAR SE É DIA VÁLIDO PARA CHECAGEM (qua, sex)
     const diaSemana = dataAgendamento.getDay();
     let foiReagendado = false;
-    if (diaSemana !== 3 && diaSemana !== 5 && diaSemana !== 6) {
+    if (diaSemana !== 3 && diaSemana !== 5) {
       console.log(
         `⚠️ Dia ${dataAgendamento.toLocaleDateString(
           "pt-BR"
@@ -530,7 +530,7 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
         `⚠️ Horário ${proximoHorario} + 1h30min ultrapassa 17:00, reagendando para próximo dia...`
       );
 
-      // Calcular próximo dia útil válido para checagem (qua, sex, sab)
+      // Calcular próximo dia válido para checagem (qua, sex)
       const proximoDiaChecagem =
         calcularProximoDiaValidoChecagem(dataAgendamento);
 
@@ -615,15 +615,15 @@ async function obterProximoHorarioChecagem(projetistaId, dataChecagem) {
   }
 }
 
-// Função auxiliar para calcular próximo dia válido para checagem (qua, sex, sab)
+// Função auxiliar para calcular próximo dia válido para checagem (qua, sex)
 function calcularProximoDiaValidoChecagem(dataAtual) {
   const proximoDia = new Date(dataAtual);
   proximoDia.setDate(proximoDia.getDate() + 1);
 
   while (true) {
     const diaSemana = proximoDia.getDay();
-    if (diaSemana === 3 || diaSemana === 5 || diaSemana === 6) {
-      // Quarta, sexta ou sábado
+    if (diaSemana === 3 || diaSemana === 5) {
+      // Quarta ou sexta
       break;
     }
     proximoDia.setDate(proximoDia.getDate() + 1);
