@@ -10,11 +10,12 @@ async function autenticarPontta() {
   console.log("🔐 Fazendo autenticação no Pontta...");
 
   try {
-    const authData = {
-      email: "moreira278@hotmail.com",
-      password: "Moises25",
-      rememberMe: false,
-    };
+    const email = process.env.PONTTA_EMAIL;
+    const password = process.env.PONTTA_PASSWORD;
+    if (!email || !password) {
+      throw new Error("PONTTA_EMAIL e PONTTA_PASSWORD são obrigatórios");
+    }
+    const authData = { email, password, rememberMe: false };
 
     const response = await axios.post(
       "https://app.pontta.com/api/authenticate",
